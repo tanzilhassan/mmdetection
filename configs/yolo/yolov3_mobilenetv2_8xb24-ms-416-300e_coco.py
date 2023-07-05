@@ -11,6 +11,7 @@ model = dict(
     data_preprocessor=data_preprocessor,
     backbone=dict(
         type='MobileNetV2',
+        frozen_stage=1,
         out_indices=(2, 4, 6),
         act_cfg=dict(type='LeakyReLU', negative_slope=0.1),
         init_cfg=dict(
@@ -22,7 +23,7 @@ model = dict(
         out_channels=[96, 96, 96]),
     bbox_head=dict(
         type='YOLOV3Head',
-        num_classes=80,
+        num_classes=6,
         in_channels=[96, 96, 96],
         out_channels=[96, 96, 96],
         anchor_generator=dict(
@@ -65,7 +66,7 @@ model = dict(
         max_per_img=100))
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = 'data/coco/'
+data_root = 'data/'
 
 # Example to use different file client
 # Method 1: simply set the data root and let the file I/O module
@@ -82,6 +83,14 @@ data_root = 'data/coco/'
 #     }))
 backend_args = None
 
+metainfo = {
+        'classes':('vehicles','Ambulance','Bus','Car','Motorcycle','Truck',),
+        'pallete':[
+        (220, 20, 60), (119, 11, 32), (0, 0, 142), (0, 0, 230), (106, 0, 228),
+        (0, 60, 100),]
+        }
+
+
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
@@ -94,14 +103,17 @@ train_pipeline = [
         type='MinIoURandomCrop',
         min_ious=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9),
         min_crop_size=0.3),
-    dict(type='RandomResize', scale=[(320, 320), (416, 416)], keep_ratio=True),
+    dict(type='RandomResize', scale=[(320, 320),(512, 512)], keep_ratio=True),
+    dict(type='Resize',scale=(416,416),keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PhotoMetricDistortion'),
     dict(type='PackDetInputs')
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
+    dict(type='RandomResize', scale=[(320, 320),(512, 512)], keep_ratio=True),
     dict(type='Resize', scale=(416, 416), keep_ratio=True),
+
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
@@ -110,24 +122,14 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=24,
+    batch_size=8,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
     batch_sampler=dict(type='AspectRatioBatchSampler'),
-    dataset=dict(
-        type='RepeatDataset',  # use RepeatDataset to speed up training
-        times=10,
-        dataset=dict(
-            type=dataset_type,
-            data_root=data_root,
-            ann_file='annotations/instances_train2017.json',
-            data_prefix=dict(img='train2017/'),
-            filter_cfg=dict(filter_empty_gt=True, min_size=32),
-            pipeline=train_pipeline,
-            backend_args=backend_args)))
+    dataset=dict( type= 'RepeatDataset', times =7, dict (type=dataset_type, data_root=data_root, ann_file='train/_annotations.coco.json', data_prefix=dict(img='train/'), filter_cfg=dict(filter_empty_gt=True, min_size=32), pipeline=train_pipeline)))
 val_dataloader = dict(
-    batch_size=24,
+    batch_size=8,
     num_workers=4,
     persistent_workers=True,
     drop_last=False,
@@ -135,42 +137,73 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='annotations/instances_val2017.json',
-        data_prefix=dict(img='val2017/'),
+        ann_file='valid/_annotations.coco.json',
+        data_prefix=dict(img='valid/'),
         test_mode=True,
         pipeline=test_pipeline,
         backend_args=backend_args))
-test_dataloader = val_dataloader
+
+
+test_dataloader = dict(
+    batch_size=8,
+    num_workers=4,
+    persistent_workers=True,
+    drop_last=False,
+    sampler=dict(type='DefaultSampler',shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='test/_annotations.coco.json',
+        data_prefix=dict(img='test/'),
+        test_mode=True,
+        pipeline=test_pipeline))
+
+
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'annotations/instances_val2017.json',
+    ann_file=data_root + 'valid/_annotations.coco.json',
     metric='bbox',
     backend_args=backend_args)
-test_evaluator = val_evaluator
 
-train_cfg = dict(max_epochs=30)
+
+test_evaluator = dict(
+    type='CocoMetric',
+    ann_file=data_root + 'test/_annotations.coco.json',
+    metric='bbox',
+    outfile_prefix='./work_dirs/test')
+
+
+# EPOCH 
+train_cfg = dict(max_epochs=50,val_interval=5)
+
+lr = 0.01
 
 # optimizer
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(type='SGD', lr=0.003, momentum=0.9, weight_decay=0.0005),
+    optimizer=dict(type='SGD', lr=lr, momentum=0.9, weight_decay=0.0005),
     clip_grad=dict(max_norm=35, norm_type=2))
 
 # learning policy
 param_scheduler = [
     dict(
-        type='LinearLR',
-        start_factor=0.0001,
-        by_epoch=False,
+        type='CosineAnnealingLR',
+        T_max=8,
+        eta_min=lr * 1e-1,
         begin=0,
-        end=4000),
-    dict(type='MultiStepLR', by_epoch=True, milestones=[24, 28], gamma=0.1)
-]
+        end=100,
+        by_epoch=True)]
 
 find_unused_parameters = True
+
+default_hooks  = dict(
+        checkpoint=dict(type='CheckpointHook',interval=10))
+
 
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (24 samples per GPU)
-auto_scale_lr = dict(base_batch_size=192)
+auto_scale_lr = dict(base_batch_size=512)
+
+#load_from = 'checkpoint5/epoch_60.pth'
