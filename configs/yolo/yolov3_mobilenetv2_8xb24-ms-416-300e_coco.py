@@ -192,7 +192,7 @@ param_scheduler = [
         T_max=8,
         eta_min=lr * 1e-1,
         begin=0,
-        end=100,
+        end=500,
         by_epoch=True)]
 
 find_unused_parameters = True
