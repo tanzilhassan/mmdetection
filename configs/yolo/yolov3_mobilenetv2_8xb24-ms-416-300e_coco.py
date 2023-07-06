@@ -11,7 +11,7 @@ model = dict(
     data_preprocessor=data_preprocessor,
     backbone=dict(
         type='MobileNetV2',
-        frozen_stage=1,
+        frozen_stages=1,
         out_indices=(2, 4, 6),
         act_cfg=dict(type='LeakyReLU', negative_slope=0.1),
         init_cfg=dict(
@@ -103,7 +103,7 @@ train_pipeline = [
         type='MinIoURandomCrop',
         min_ious=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9),
         min_crop_size=0.3),
-    dict(type='RandomResize', scale=[(320, 320),(512, 512)], keep_ratio=True),
+    dict(type='RandomResize', scale=[(320, 320),(416, 416)], keep_ratio=True),
     dict(type='Resize',scale=(416,416),keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PhotoMetricDistortion'),
@@ -111,7 +111,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
-    dict(type='RandomResize', scale=[(320, 320),(512, 512)], keep_ratio=True),
+    dict(type='RandomResize', scale=[(320, 320),(416, 416)], keep_ratio=True),
     dict(type='Resize', scale=(416, 416), keep_ratio=True),
 
     dict(type='LoadAnnotations', with_bbox=True),
@@ -127,7 +127,7 @@ train_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
     batch_sampler=dict(type='AspectRatioBatchSampler'),
-    dataset=dict( type= 'RepeatDataset', times =7, dict (type=dataset_type, data_root=data_root, ann_file='train/_annotations.coco.json', data_prefix=dict(img='train/'), filter_cfg=dict(filter_empty_gt=True, min_size=32), pipeline=train_pipeline)))
+    dataset=dict (type=dataset_type, data_root=data_root, ann_file='train/_annotations.coco.json', data_prefix=dict(img='train/'), filter_cfg=dict(filter_empty_gt=True, min_size=32), pipeline=train_pipeline))
 val_dataloader = dict(
     batch_size=8,
     num_workers=4,
@@ -175,7 +175,7 @@ test_evaluator = dict(
 
 
 # EPOCH 
-train_cfg = dict(max_epochs=50,val_interval=5)
+train_cfg = dict(max_epochs=500,val_interval=5)
 
 lr = 0.01
 
