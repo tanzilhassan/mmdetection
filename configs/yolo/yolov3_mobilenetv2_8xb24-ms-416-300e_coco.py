@@ -66,7 +66,7 @@ model = dict(
         max_per_img=100))
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = 'data/'
+data_root = '/share/thassan/Vehicle_data/'
 
 # Example to use different file client
 # Method 1: simply set the data root and let the file I/O module
