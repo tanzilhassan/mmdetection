@@ -12,6 +12,7 @@ model = dict(
     backbone=dict(
         type='Darknet',
         depth=53,
+        frozen_stages=0,
         out_indices=(3, 4, 5),
         init_cfg=dict(type='Pretrained', checkpoint='open-mmlab://darknet53')),
     neck=dict(
@@ -21,14 +22,14 @@ model = dict(
         out_channels=[512, 256, 128]),
     bbox_head=dict(
         type='YOLOV3Head',
-        num_classes=80,
+        num_classes=6,
         in_channels=[512, 256, 128],
         out_channels=[1024, 512, 256],
         anchor_generator=dict(
             type='YOLOAnchorGenerator',
-            base_sizes=[[(116, 90), (156, 198), (373, 326)],
-                        [(30, 61), (62, 45), (59, 119)],
-                        [(10, 13), (16, 30), (33, 23)]],
+            base_sizes=[[(190, 202), (311, 243), (360, 352)],
+                        [(66, 91), (149, 109), (99, 167)],
+                        [(24, 21), (37, 48), (78, 53)]],
             strides=[32, 16, 8]),
         bbox_coder=dict(type='YOLOBBoxCoder'),
         featmap_strides=[32, 16, 8],
@@ -58,13 +59,21 @@ model = dict(
     test_cfg=dict(
         nms_pre=1000,
         min_bbox_size=0,
-        score_thr=0.05,
+        score_thr=0.05,        
         conf_thr=0.005,
         nms=dict(type='nms', iou_threshold=0.45),
         max_per_img=100))
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = 'data/coco/'
+data_root = '/share/thassan/Vehicle_data/'
+
+
+metainfo = {
+        'classes':('vehicles','Ambulance','Bus','Car','Motorcycle','Truck',),
+        'pallete':[
+        (220, 20, 60), (119, 11, 32), (0, 0, 142), (0, 0, 230), (106, 0, 228),
+        (0, 60, 100),]
+        }
 
 # Example to use different file client
 # Method 1: simply set the data root and let the file I/O module
@@ -100,7 +109,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
-    dict(type='Resize', scale=(608, 608), keep_ratio=True),
+    dict(type='Resize', scale=(416, 416), keep_ratio=True),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='PackDetInputs',
@@ -113,12 +122,12 @@ train_dataloader = dict(
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    batch_sampler=dict(type='AspectRatioBatchSampler'),
+        batch_sampler=dict(type='AspectRatioBatchSampler'),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='annotations/instances_train2017.json',
-        data_prefix=dict(img='train2017/'),
+        ann_file='train/_annotations.coco.json',
+        data_prefix=dict(img='train/'),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
         backend_args=backend_args))
@@ -131,8 +140,8 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='annotations/instances_val2017.json',
-        data_prefix=dict(img='val2017/'),
+        ann_file='valid/_annotations.coco.json',
+        data_prefix=dict(img='valid/'),
         test_mode=True,
         pipeline=test_pipeline,
         backend_args=backend_args))
@@ -140,12 +149,13 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'annotations/instances_val2017.json',
+    ann_file=data_root + 'valid/_annotations.coco.json',
     metric='bbox',
+    #save_best='bbox',
     backend_args=backend_args)
 test_evaluator = val_evaluator
 
-train_cfg = dict(max_epochs=273, val_interval=7)
+train_cfg = dict(max_epochs=500, val_interval=5)
 
 # optimizer
 optim_wrapper = dict(
@@ -159,9 +169,16 @@ param_scheduler = [
     dict(type='MultiStepLR', by_epoch=True, milestones=[218, 246], gamma=0.1)
 ]
 
-default_hooks = dict(checkpoint=dict(type='CheckpointHook', interval=7))
+default_hooks = dict(checkpoint=dict(type='CheckpointHook', interval=50))
 
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (8 samples per GPU)
 auto_scale_lr = dict(base_batch_size=64)
+
+    
+                                                                                                                                                                                                 119,0-1       53%
+
+
+        
+
